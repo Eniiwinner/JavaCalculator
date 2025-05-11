@@ -1,10 +1,11 @@
-FROM openjdk:11-jdk-slim
-
+FROM maven:3.8.4-openjdk-11 AS build
 WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+RUN mvn clean package -DskipTests
 
-COPY target/java-web-calculator-*.jar app.jar
-
+FROM tomcat:9.0-jre11
+RUN rm -rf /usr/local/tomcat/webapps/*
+COPY --from=build /app/target/*.war /usr/local/tomcat/webapps/ROOT.war
 EXPOSE 8080
-
-ENTRYPOINT ["java", "-jar", "app.jar"]
-
+CMD ["catalina.sh", "run"]
