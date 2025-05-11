@@ -41,16 +41,4 @@ pipeline {
         stage('Clean up') {
             steps {
                 sh "docker rmi ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} || true"
-                sh "docker rmi ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest || true"
-            }
-        }
-    }
-    
-    post {
-        always {
-            node {
-                sh 'docker logout || true'
-            }
-        }
-    }
-}
+                sh "docker rmi ${DOCKER_REGISTRY}/${IMAGE_NA
