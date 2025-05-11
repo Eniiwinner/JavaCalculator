@@ -2,20 +2,33 @@ pipeline {
     agent any
     
     environment {
-        DOCKER_HUB = credentials('docker-hub-credentials')
+        DOCKER_REGISTRY = 'eniiwinner'
+        IMAGE_NAME = 'java-calculator-app'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        DOCKER_CREDENTIALS = credentials('dockerhub-credentials')
     }
     
     stages {
-        stage('Build') {
+        stage('Checkout') {
             steps {
-                sh 'mvn clean package'
+                checkout scm
             }
         }
         
         stage('Build Docker Image') {
             steps {
                 script {
-                    docker.build(“eniiwinner/java-web-calculator:${env.BUILD_NUMBER}")
+                    // Build the image with proper variable interpolation
+                    def imageName = "${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+                    docker.build(imageName)
+                }
+            }
+        }
+        
+        stage('Login to Docker Hub') {
+            steps {
+                script {
+                    sh "echo ${DOCKER_CREDENTIALS_PSW} | docker login -u ${DOCKER_CREDENTIALS_USR} --password-stdin"
                 }
             }
         }
@@ -23,17 +36,32 @@ pipeline {
         stage('Push to Docker Hub') {
             steps {
                 script {
-                    docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
-                        docker.image(“eniiwinner/java-web-calculator:${env.BUILD_NUMBER}").push()
-                    }
+                    def imageName = "${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+                    def latestTag = "${DOCKER_REGISTRY}/${IMAGE_NAME}:latest"
+                    
+                    sh "docker push ${imageName}"
+                    sh "docker tag ${imageName} ${latestTag}"
+                    sh "docker push ${latestTag}"
                 }
             }
         }
         
-        stage('Deploy') {
+        stage('Clean up') {
             steps {
-                sh 'docker run -d -p 8080:8080 eniiwinner/java-web-calculator:${env.BUILD_NUMBER}'
+                script {
+                    def imageName = "${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+                    def latestTag = "${DOCKER_REGISTRY}/${IMAGE_NAME}:latest"
+                    
+                    sh "docker rmi ${imageName}"
+                    sh "docker rmi ${latestTag}"
+                }
             }
+        }
+    }
+    
+    post {
+        always {
+            sh 'docker logout'
         }
     }
 }
